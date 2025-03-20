@@ -1,6 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <DHT.h>
+#include <Arduino_JSON.h>
 
 // MQTT Broker bilgileri
 const char* mqtt_server = "192.168.1.136"; // Broker adresi
@@ -9,12 +10,9 @@ const char* mqtt_user = "ESP8266"; // Broker kullanıcı adı
 const char* mqtt_password = NULL; // Broker şifresi
 
 const char* mqtt_topic = "test_topic"; // Test konusu konu
-const char* mqtt_topic_temperature = "esp8266/dht11/temperature"; // Sıcaklık konusu
-const char* mqtt_topic_humidity = "esp8266/dht11/humidity"; // Nem konusu
-
-// Her sensör için ayrı zaman damgası (lastMsg)
-unsigned long lastTemp = 0;
-unsigned long lastHum = 0;
+const char* mqtt_topic_dht11 = "esp8266/dht11"; // Sıcaklık konusu
+const long interval = 15000; // 
+unsigned long lastMsg;
 
 // DHT11 Sensörü için pin ve tip tanımlaması
 #define DHTPIN D4     // DHT11'in bağlı olduğu pin (GPIO 2)
@@ -55,17 +53,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
       Serial.print((char)payload[i]);
     }
     Serial.println();
-}
-
-void pub_msg(const char* mqtt_topic, char* msg, int interval, unsigned long &lastMsg){
-    unsigned long now = millis();
-    if (now - lastMsg > interval) {
-        lastMsg = now;
-        Serial.print(mqtt_topic);
-        Serial.print(" ");
-        Serial.println(msg);
-        client.publish(mqtt_topic, msg);
-    }
 }
 
 // MQTT broker'a bağlan
@@ -113,12 +100,22 @@ void loop() {
     Serial.println("DHT11'den veri okunamadı!");
     return;
   }
+  
+  // Saving data to json document
+  JSONVar jsonDoc;
+  jsonDoc["temperature"] = temperature;
+  jsonDoc["humidity"] = humidity;
 
-  char tempString[8];
-  char humString[8];
-  dtostrf(temperature, 6, 2, tempString); // Float'ı string'e çevir
-  dtostrf(humidity, 6, 2, humString);     // Float'ı string'e çevir
+  String jsonSTR = JSON.stringify(jsonDoc);
+  const char* jsonBuffer = jsonSTR.c_str();
 
-  pub_msg(mqtt_topic_temperature, tempString, 15000, lastTemp);
-  pub_msg(mqtt_topic_humidity, humString, 15000, lastHum);
+  // Sending jsonDoc to mqtt broker every 15 sec
+  unsigned long now = millis();
+  if (now - lastMsg > interval) {
+    lastMsg = now;
+    client.publish(mqtt_topic_dht11, jsonBuffer);
+    Serial.print("Json document transfered to broker");
+    Serial.println("Mesarument data: ");
+    Serial.print(jsonBuffer);
+  }
 }
