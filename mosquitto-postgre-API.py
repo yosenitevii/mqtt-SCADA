@@ -4,7 +4,8 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 import json
 
-PI0_IP = "192.168.1.136" # Raspberry pi Zero's local ip address
+PI0_IP = "localhost"
+# PI0_IP = "192.168.1.136" # Raspberry pi Zero's local ip address
 mqtt_topic = "esp8266/dht11"
 temp = 0
 hum = 0
@@ -19,8 +20,12 @@ DB_CONFIG = {
 }
 
 def get_db_conn():
-    conn = psycopg2.connect(**DB_CONFIG)
-    return conn
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        return conn
+    
+    except Exception as e:
+        return print({"Database connection error": str(e)}), 500
 
 def push_data(temp, hum):
     conn = get_db_conn()
@@ -34,7 +39,7 @@ def push_data(temp, hum):
         print("Data saved to database")
 
     except Exception as e:
-        return print({"postgre sql error": str(e)}), 500
+        return print({"Query error": str(e)}), 500
     
     finally:
         cursor.close()
