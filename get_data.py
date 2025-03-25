@@ -22,7 +22,16 @@ def get_data():
         cur.execute("SELECT * FROM dht11")
         rows = cur.fetchall()
 
-        return rows
+        # Get column names
+        column_names = [desc[0] for desc in cur.description]
+
+        # Transform the data to dictionary
+        result = []
+        for row in rows:
+            row_dict = dict(zip(column_names, row))
+            result.append(row_dict)
+
+        return result
     
     except Exception as e:
         print("Veritabanı hatası:", e)
