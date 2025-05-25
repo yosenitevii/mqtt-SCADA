@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air quality logs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      padding: 2rem;
+      color: #333;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 2rem;
+      gap: 1rem;
+    }
+
+    input[type="text"] {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+
+    canvas {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Temperature and humidty logs of Ulas's bedroom</h1>
+    <div class="controls">
+      <input type="text" id="datePicker" placeholder="Tarih seçin" />
+    </div>
+    <canvas id="myChart" width="800" height="400"></canvas>
+  </div>
+
+  <script>
+    flatpickr("#datePicker", {
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "d-m-Y",
+      defaultDate: new Date(),
+      onChange: fetchData
+    });
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    let myChart = null;
+
+    async function fetchData() {
+      const dateStr = document.getElementById('datePicker').value;
+
+      const response = await fetch(`/data?date=${dateStr}`);
+      const data = await response.json();
+
+      // Eğer veri boşsa eski grafiği temizle
+      if (!data || data.length === 0) {
+        if (myChart) {
+          myChart.destroy();
+        }
+        return;
+      }
+
+      // Verileri saat sırasına göre sırala
+      data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      const labels = data.map(d => new Date(d.created_at).toLocaleTimeString('tr-TR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+
+      const temperatures = data.map(d => d.temperature);
+      const humidity = data.map(d => d.humidity);
+
+      if (myChart) {
+        myChart.destroy();
+      }
+
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Temperature (°C)',
+              data: temperatures,
+              borderColor: 'rgba(255, 99, 132, 1)',
+              backgroundColor: 'rgba(255, 99, 132, 0.1)',
+              tension: 0.3
+            },
+            {
+              label: 'Humidity (%)',
+              data: humidity,
+              borderColor: 'rgba(54, 162, 235, 1)',
+              backgroundColor: 'rgba(54, 162, 235, 0.1)',
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              suggestedMin: 0,
+              suggestedMax: 100,
+              title: {
+                display: true,
+                text: 'Value'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Time'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false
+            }
+          }
+        }
+      });
+    }
+
+    // Sayfa açıldığında bugünün verilerini getir
+    window.addEventListener('load', fetchData);
+  </script>
+</body>
+</html>
